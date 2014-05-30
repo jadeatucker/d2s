@@ -172,36 +172,38 @@ func ReadGame(sg *SavedGame, r io.ReadSeeker, size int64) (err error) {
 	return nil
 }
 
-func (sg *SavedGame) Write(p []byte) (n int, err error) {
-	//sg.Checksum()
-	// perform algorithm
-	// write checksum
-	// write struct to buffer
-	// write dynamic data to buffer
-	return 0, nil
+func (sg *SavedGame) Read(p []byte) (n int, err error) {
+	b := new(bytes.Buffer)
+	err = binary.Write(b, binary.LittleEndian, sg.FileHeader)
+	if err != nil {
+		return 0, err
+	}
+
+	n = copy(p, b.Bytes())
+	n += copy(p[H_OFFSET:], sg.FileBuff)
+
+	return
 }
 
-func (sg *SavedGame) Checksum() error {
-	sh := &sg.FileHeader
-	var sum uint32 = 0
-	sh.Checksum = 0
+func (sg *SavedGame) Checksum() (err error) {
+	p := &sg.FileHeader.Checksum
+	c := *p
+	*p = 0
 
-	buf := new(bytes.Buffer)
-	err := binary.Write(buf, binary.LittleEndian, sg.FileHeader)
+	b := make([]byte, H_OFFSET+int64(len(sg.FileBuff)))
+	_, err = sg.Read(b)
 	if err != nil {
-		return fmt.Errorf("binary.Write failed:  %v", err)
+		*p = c
+		return err
 	}
 
-	c, err := buf.ReadByte()
-	for err != io.EOF {
-		sum = ((sum << 1) | (sum >> 31)) + uint32(c)
-		c, err = buf.ReadByte()
-	}
+	*p = checksum(b, 0)
+	return
+}
 
-	for _, c := range sg.FileBuff {
-		sum = ((sum << 1) | (sum >> 31)) + uint32(c)
+func checksum(b []byte, chk uint32) uint32 {
+	for _, c := range b {
+		chk = ((chk << 1) | (chk >> 31)) + uint32(c)
 	}
-
-	sh.Checksum = sum
-	return nil
+	return chk
 }

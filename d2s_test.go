@@ -5,8 +5,9 @@ import (
 	"testing"
 )
 
+var sg SavedGame
+
 func TestReadGame(t *testing.T) {
-	var sg SavedGame
 	r, err := os.Open("testdata/Sillynecro.d2s")
 	if err != nil {
 		t.Fatalf("Unable to open file for reading: %v", err)
@@ -46,5 +47,16 @@ func TestReadGame(t *testing.T) {
 
 	if chksum != data.Checksum {
 		t.Errorf("Bad value for Checksum: %v", data.Checksum)
+	}
+}
+
+func TestRead(t *testing.T) {
+	b := make([]byte, sg.FileHeader.FileSize)
+
+	n, err := sg.Read(b)
+	if err != nil {
+		t.Error(err)
+	} else if n != int(sg.FileHeader.FileSize) {
+		t.Fatalf("Unexpected number of bytes read: %d", n)
 	}
 }
