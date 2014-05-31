@@ -94,7 +94,7 @@ type saveFile struct {
 	//			 Iron Golem Item
 }
 
-func NewSavedGame(r io.Reader, size int64) (sg *SavedGame, err error) {
+func New(r io.Reader, size int64) (sg *SavedGame, err error) {
 	if size < 0 {
 		return nil, fmt.Errorf("d2s.ReadGame error: invalid size")
 	} else if size < h_OFFSET {

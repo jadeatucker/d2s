@@ -5,11 +5,15 @@ import (
 	"testing"
 )
 
-var sg *SavedGame
-var f_size int64
+var (
+	sg     *SavedGame
+	f_size int64
+)
 
-const e_checksum uint32 = 1436947527
-const e_name = "Sillynecro"
+const (
+	e_checksum uint32 = 1436947527
+	e_name            = "Sillynecro"
+)
 
 func TestReadGame(t *testing.T) {
 	r, err := os.Open("testdata/Sillynecro.d2s")
@@ -24,7 +28,7 @@ func TestReadGame(t *testing.T) {
 		f_size = fi.Size()
 	}
 
-	sg, err = NewSavedGame(r, f_size)
+	sg, err = New(r, f_size)
 	if err != nil {
 		t.Fatalf("Error reading saved game: %v\n", err)
 	}
@@ -36,7 +40,7 @@ func TestRead(t *testing.T) {
 	n, err := sg.Read(b)
 	if err != nil {
 		t.Fatal(err)
-	} else if n != int(f_size) {
+	} else if int64(n) != f_size {
 		t.Fatalf("Unexpected number of bytes read: %d\n", n)
 	}
 }
