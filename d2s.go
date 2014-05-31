@@ -7,14 +7,14 @@ import (
 	"io"
 )
 
-const H_OFFSET int64 = 767
+const h_OFFSET int64 = 767
 
 type SavedGame struct {
-	FileHeader SaveFile
-	FileBuff   []byte
+	header saveFile
+	buffer []byte
 }
 
-type SaveFile struct {
+type saveFile struct {
 	FileId          uint32
 	FileVersion     uint32
 	FileSize        uint32
@@ -64,17 +64,17 @@ type SaveFile struct {
 	Unk7            [6]byte
 
 	// Quest data for each difficulty level
-	QuestsNormal    Quests
-	QuestsNightmare Quests
-	QuestsHell      Quests
+	QuestsNormal    quests
+	QuestsNightmare quests
+	QuestsHell      quests
 
 	// Waypoint data for each difficulty level
 	WS   [2]byte
 	Unk8 [6]byte
 
-	WPSNormal    Waypoints
-	WPSNightmare Waypoints
-	WPSHell      Waypoints
+	WPSNormal    waypoints
+	WPSNightmare waypoints
+	WPSHell      waypoints
 	Unk9         [1]byte
 
 	// NPC Introductions
@@ -94,111 +94,57 @@ type SaveFile struct {
 	//			 Iron Golem Item
 }
 
-type Quests struct {
-
-	// ACT I
-	Warriv                uint16
-	DenOfEvil             uint16
-	SistersBurialGrounds  uint16
-	ToolsoftheTrade       uint16
-	TheSearchforCain      uint16
-	TheForgottenTower     uint16
-	SisterstotheSlaughter uint16
-	Unk10                 [2]byte
-
-	// ACT II
-	Jerhyn           uint16
-	RadamentsLair    uint16
-	TheHoradricStaff uint16
-	TaintedSun       uint16
-	ArcaneSanctuary  uint16
-	TheSummoner      uint16
-	TheSevenTombs    uint16
-	Unk11            [2]byte
-
-	// ACT III
-	Hratli                uint16
-	LamEsensTome          uint16
-	KhalimsWill           uint16
-	BladeoftheOldReligion uint16
-	TheGoldenBird         uint16
-	TheBlackenedTemple    uint16
-	TheGuardian           uint16
-	Unk12                 [2]byte
-
-	// ACT IV
-	Act_IV         uint16
-	TheFallenAngel uint16
-	TerrorsEnd     uint16
-	HellsForge     uint16
-	Unk13          [14]byte
-
-	// ACT V
-	SiegeonHarrogath    uint16
-	RescueonMountArreat uint16
-	PrisonofIce         uint16
-	BetrayalofHarrogath uint16
-	RiteofPassage       uint16
-	EveofDestruction    uint16
-	Unk14               [14]byte
-}
-
-type Waypoints struct {
-	Unk15    uint16
-	BitField [5]byte
-	Unk16    [17]byte
-}
-
-func ReadGame(sg *SavedGame, r io.ReadSeeker, size int64) (err error) {
+func NewSavedGame(r io.Reader, size int64) (sg *SavedGame, err error) {
 	if size < 0 {
-		return fmt.Errorf("d2s.ReadGame error: invalid size")
-	} else if size < H_OFFSET {
-		return fmt.Errorf("d2s.ReadGame error: size too small")
+		return nil, fmt.Errorf("d2s.ReadGame error: invalid size")
+	} else if size < h_OFFSET {
+		return nil, fmt.Errorf("d2s.ReadGame error: size too small")
 	}
 
+	sg = new(SavedGame)
 	// Read static header struct
-	err = binary.Read(r, binary.LittleEndian, &sg.FileHeader)
+	err = binary.Read(r, binary.LittleEndian, &sg.header)
 	if err != nil {
-		return fmt.Errorf("d2s.ReadGame failed to read header: %v", err)
+		return nil, fmt.Errorf("d2s.ReadGame failed to read header: %v", err)
 	}
 
 	// Read remaining into dynamic buffer
-	sg.FileBuff = make([]byte, size-H_OFFSET)
-	_, err = r.Read(sg.FileBuff)
+	sg.buffer = make([]byte, size-h_OFFSET)
+	_, err = r.Read(sg.buffer)
 	if err != nil {
-		return fmt.Errorf("d2s.ReadGame failed to read: %v", err)
+		return nil, fmt.Errorf("d2s.ReadGame failed to read: %v", err)
 	}
 
-	return nil
+	return
 }
 
 func (sg *SavedGame) Read(p []byte) (n int, err error) {
 	b := new(bytes.Buffer)
-	err = binary.Write(b, binary.LittleEndian, sg.FileHeader)
+	err = binary.Write(b, binary.LittleEndian, sg.header)
 	if err != nil {
 		return 0, err
 	}
 
 	n = copy(p, b.Bytes())
-	n += copy(p[H_OFFSET:], sg.FileBuff)
+	n += copy(p[h_OFFSET:], sg.buffer)
 
 	return
 }
 
-func (sg *SavedGame) Checksum() (err error) {
-	p := &sg.FileHeader.Checksum
+func (sg *SavedGame) Checksum() uint32 {
+	p := &sg.header.Checksum
 	c := *p
 	*p = 0
 
-	b := make([]byte, H_OFFSET+int64(len(sg.FileBuff)))
-	_, err = sg.Read(b)
+	b := make([]byte, h_OFFSET+int64(len(sg.buffer)))
+	_, err := sg.Read(b)
 	if err != nil {
 		*p = c
-		return err
+		return 0
 	}
 
 	*p = checksum(b, 0)
-	return
+	return *p
 }
 
 func checksum(b []byte, chk uint32) uint32 {
@@ -206,4 +152,14 @@ func checksum(b []byte, chk uint32) uint32 {
 		chk = ((chk << 1) | (chk >> 31)) + uint32(c)
 	}
 	return chk
+}
+
+func (sg *SavedGame) Name() (str string) {
+	b := sg.header.CharName
+	i := bytes.IndexByte(b[:], 0)
+
+	if i > 0 {
+		str = string(b[:i])
+	}
+	return
 }
