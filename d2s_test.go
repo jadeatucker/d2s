@@ -59,3 +59,29 @@ func TestName(t *testing.T) {
 		t.Fatalf("Bad value for name: %v\n", name)
 	}
 }
+
+func TestSetName(t *testing.T) {
+	var err error
+
+	validNames := []string{"Testname", "Test-Name", "Test_name"}
+	for _, n := range validNames {
+		err = sg.SetName(n)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	badNames := []string{"Test-_Name", "Testname-", "_Testname", "", "a"}
+	for _, n := range badNames {
+		err = sg.SetName(n)
+		if err == nil {
+			t.Error(err)
+		}
+	}
+
+	// Character name should be set to last valid name
+	name := sg.Name()
+	if name != validNames[len(validNames)-1] {
+		t.Fatalf("Bad value for name: %v\n", name)
+	}
+}

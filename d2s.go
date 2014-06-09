@@ -5,9 +5,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"regexp"
 )
 
 const h_OFFSET int64 = 767
+const nameRegexp = "^[^-_][a-zA-Z]+[-_]?[a-zA-Z]+[^-_]$"
 
 type SavedGame struct {
 	header saveFile
@@ -161,5 +163,31 @@ func (sg *SavedGame) Name() (str string) {
 	if i > 0 {
 		str = string(b[:i])
 	}
+	return
+}
+
+// Sets CharName field, returns an error if name is not valid.
+// Valid names must be 2-15 characters in length, and can only contain
+// characters from the english alphabet with exception to one dash(-) or
+// underscore(_) as long as it is not the first or last character.
+func (sg *SavedGame) SetName(name string) (err error) {
+	if len(name) < 2 || len(name) > 15 {
+		return fmt.Errorf("d2s.SetName name must be 2-15 characters long")
+	}
+
+	match, _ := regexp.MatchString(nameRegexp, name)
+
+	if !match {
+		return fmt.Errorf("d2s.SetName invalid name: %s", name)
+	}
+
+	for i := 0; i < len(sg.header.CharName); i++ {
+		if i < len(name) {
+			sg.header.CharName[i] = name[i]
+		} else {
+			sg.header.CharName[i] = 0
+		}
+	}
+
 	return
 }
