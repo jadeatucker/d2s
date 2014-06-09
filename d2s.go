@@ -11,6 +11,20 @@ import (
 const h_OFFSET int64 = 767
 const nameRegexp = "^[^-_][a-zA-Z]+[-_]?[a-zA-Z]+[^-_]$"
 
+const (
+	CLASS_AMAZON      = 0x00
+	CLASS_SORCERESS   = 0x01
+	CLASS_NECROMANCER = 0x02
+	CLASS_PALADIN     = 0x03
+	CLASS_BARBARIAN   = 0x04
+	CLASS_DRUID       = 0x05
+	CLASS_ASSASSIN    = 0x06
+)
+
+type Class struct {
+	Class byte
+}
+
 type SavedGame struct {
 	header saveFile
 	buffer []byte
@@ -26,7 +40,7 @@ type saveFile struct {
 	CharStatus      byte
 	CharProgression byte
 	Unk0            [2]byte
-	CharClass       byte
+	CharClass       Class
 	Unk1            [2]byte
 	CharLvl         byte
 	Unk2            uint32
@@ -189,5 +203,52 @@ func (sg *SavedGame) SetName(name string) (err error) {
 		}
 	}
 
+	return
+}
+
+func (sg *SavedGame) Class() Class {
+	return sg.header.CharClass
+}
+
+func (c Class) String() (str string) {
+	switch c.Class {
+	case CLASS_AMAZON:
+		str = "Amazon"
+	case CLASS_ASSASSIN:
+		str = "Assasin"
+	case CLASS_SORCERESS:
+		str = "Sorceress"
+	case CLASS_DRUID:
+		str = "Druid"
+	case CLASS_PALADIN:
+		str = "Paladin"
+	case CLASS_BARBARIAN:
+		str = "Barbarian"
+	case CLASS_NECROMANCER:
+		str = "Necromancer"
+	}
+	return
+}
+
+func (sg *SavedGame) SetClass(class Class) (err error) {
+	switch class.Class {
+	case CLASS_AMAZON:
+		break
+	case CLASS_ASSASSIN:
+		break
+	case CLASS_SORCERESS:
+		break
+	case CLASS_DRUID:
+		break
+	case CLASS_PALADIN:
+		break
+	case CLASS_BARBARIAN:
+		break
+	case CLASS_NECROMANCER:
+		break
+	default:
+		return fmt.Errorf("d2s.SetClass invalid value for class: %v", class)
+	}
+	sg.header.CharClass = class
 	return
 }

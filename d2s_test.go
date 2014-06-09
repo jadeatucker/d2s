@@ -1,6 +1,7 @@
 package d2s
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -83,5 +84,33 @@ func TestSetName(t *testing.T) {
 	name := sg.Name()
 	if name != validNames[len(validNames)-1] {
 		t.Fatalf("Bad value for name: %v\n", name)
+	}
+}
+
+func TestClass(t *testing.T) {
+	var class Class = sg.Class()
+	fmt.Println(class)
+
+	if class.Class != CLASS_NECROMANCER {
+		t.Fatalf("Bad value for class: %s", class)
+	}
+}
+
+func TestSetClass(t *testing.T) {
+	var class Class = Class{CLASS_AMAZON}
+
+	err := sg.SetClass(Class{0x07})
+	if err == nil {
+		t.Fatalf("Expected error setting bad classs but got %v", err)
+	}
+
+	err = sg.SetClass(class)
+	if err != nil {
+		t.Fatalf("Error trying to set class: %v", err)
+	}
+
+	class = sg.Class()
+	if class.Class != CLASS_AMAZON {
+		t.Fatalf("Bad value for class: %s", class)
 	}
 }
