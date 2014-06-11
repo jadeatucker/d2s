@@ -16,7 +16,8 @@ const (
 	e_name            = "Sillynecro"
 )
 
-func TestReadGame(t *testing.T) {
+// TODO: All other tests are dependent on this one.  Fixit
+func TestNew(t *testing.T) {
 	r, err := os.Open("testdata/Sillynecro.d2s")
 	if err != nil {
 		t.Fatalf("Unable to open file for reading: %v\n", err)
@@ -91,17 +92,17 @@ func TestClass(t *testing.T) {
 	var class Class = sg.Class()
 	fmt.Println(class)
 
-	if class.Class != CLASS_NECROMANCER {
+	if class.Class != ClassNecromancer {
 		t.Fatalf("Bad value for class: %s", class)
 	}
 }
 
 func TestSetClass(t *testing.T) {
-	var class Class = Class{CLASS_AMAZON}
+	var class Class = Class{ClassAmazon}
 
 	err := sg.SetClass(Class{0x07})
 	if err == nil {
-		t.Fatalf("Expected error setting bad classs but got %v", err)
+		t.Fatalf("Expected error setting bad class but got %v", err)
 	}
 
 	err = sg.SetClass(class)
@@ -110,7 +111,7 @@ func TestSetClass(t *testing.T) {
 	}
 
 	class = sg.Class()
-	if class.Class != CLASS_AMAZON {
+	if class.Class != ClassAmazon {
 		t.Fatalf("Bad value for class: %s", class)
 	}
 }

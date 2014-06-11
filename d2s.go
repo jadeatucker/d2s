@@ -1,3 +1,5 @@
+// Package d2s provides functions for interfacing with Diablo II saved game
+// file formats.  Current file formats supported are v1.10 - v1.13d.
 package d2s
 
 import (
@@ -8,29 +10,16 @@ import (
 	"regexp"
 )
 
-const h_OFFSET int64 = 767
+const hOffset int64 = 767
 const nameRegexp = "^[^-_][a-zA-Z]+[-_]?[a-zA-Z]+[^-_]$"
 
-const (
-	CLASS_AMAZON      = 0x00
-	CLASS_SORCERESS   = 0x01
-	CLASS_NECROMANCER = 0x02
-	CLASS_PALADIN     = 0x03
-	CLASS_BARBARIAN   = 0x04
-	CLASS_DRUID       = 0x05
-	CLASS_ASSASSIN    = 0x06
-)
-
-type Class struct {
-	Class byte
-}
-
+// Top level struct for interfacing with a saved game file
 type SavedGame struct {
-	header saveFile
+	header saveHeader
 	buffer []byte
 }
 
-type saveFile struct {
+type saveHeader struct {
 	FileId          uint32
 	FileVersion     uint32
 	FileSize        uint32
@@ -110,10 +99,14 @@ type saveFile struct {
 	//			 Iron Golem Item
 }
 
+// New reads from an io.Reader size bytes and returns a new SavedGame.
+// This method is used to take a stream of bytes (like from an io.File),
+// and convert it into a SavedGame object that can be used to modify and
+// rewrite the original file.
 func New(r io.Reader, size int64) (sg *SavedGame, err error) {
 	if size < 0 {
 		return nil, fmt.Errorf("d2s.ReadGame error: invalid size")
-	} else if size < h_OFFSET {
+	} else if size < hOffset {
 		return nil, fmt.Errorf("d2s.ReadGame error: size too small")
 	}
 
@@ -121,14 +114,14 @@ func New(r io.Reader, size int64) (sg *SavedGame, err error) {
 	// Read static header struct
 	err = binary.Read(r, binary.LittleEndian, &sg.header)
 	if err != nil {
-		return nil, fmt.Errorf("d2s.ReadGame failed to read header: %v", err)
+		return nil, err
 	}
 
-	// Read remaining into dynamic buffer
-	sg.buffer = make([]byte, size-h_OFFSET)
+	// Read remaining into buffer
+	sg.buffer = make([]byte, size-hOffset)
 	_, err = r.Read(sg.buffer)
 	if err != nil {
-		return nil, fmt.Errorf("d2s.ReadGame failed to read: %v", err)
+		return nil, err
 	}
 
 	return
@@ -142,17 +135,22 @@ func (sg *SavedGame) Read(p []byte) (n int, err error) {
 	}
 
 	n = copy(p, b.Bytes())
-	n += copy(p[h_OFFSET:], sg.buffer)
+	n += copy(p[hOffset:], sg.buffer)
 
 	return
 }
 
+// Checksum performs the checksum algorithim on a SavedGame.
+// The current checksum value must be set to 0 then the checksum
+// algorithm is performed and the new value is set.  If an error was
+// encountered the original checksum value will be replaced and Checksum
+// will return 0
 func (sg *SavedGame) Checksum() uint32 {
 	p := &sg.header.Checksum
 	c := *p
 	*p = 0
 
-	b := make([]byte, h_OFFSET+int64(len(sg.buffer)))
+	b := make([]byte, hOffset+int64(len(sg.buffer)))
 	_, err := sg.Read(b)
 	if err != nil {
 		*p = c
@@ -163,6 +161,10 @@ func (sg *SavedGame) Checksum() uint32 {
 	return *p
 }
 
+// checksum takes a byte slice, an initial checksum value and returns
+// a new checksum value by adding the value of each byte sequentially.
+// A bitwise left-shift (accounting for overflow) is performed on the
+// checksum before the next byte is added.
 func checksum(b []byte, chk uint32) uint32 {
 	for _, c := range b {
 		chk = ((chk << 1) | (chk >> 31)) + uint32(c)
@@ -170,12 +172,13 @@ func checksum(b []byte, chk uint32) uint32 {
 	return chk
 }
 
-func (sg *SavedGame) Name() (str string) {
+// Name returns the name of the character as a string.
+func (sg *SavedGame) Name() (name string) {
 	b := sg.header.CharName
 	i := bytes.IndexByte(b[:], 0)
 
 	if i > 0 {
-		str = string(b[:i])
+		name = string(b[:i])
 	}
 	return
 }
@@ -184,71 +187,24 @@ func (sg *SavedGame) Name() (str string) {
 // Valid names must be 2-15 characters in length, and can only contain
 // characters from the english alphabet with exception to one dash(-) or
 // underscore(_) as long as it is not the first or last character.
-func (sg *SavedGame) SetName(name string) (err error) {
-	if len(name) < 2 || len(name) > 15 {
+func (sg *SavedGame) SetName(name string) error {
+	l := len(name)
+	if l < 2 || l > 15 {
 		return fmt.Errorf("d2s.SetName name must be 2-15 characters long")
 	}
 
 	match, _ := regexp.MatchString(nameRegexp, name)
-
 	if !match {
 		return fmt.Errorf("d2s.SetName invalid name: %s", name)
 	}
 
-	for i := 0; i < len(sg.header.CharName); i++ {
-		if i < len(name) {
+	for i := range sg.header.CharName {
+		if i < l {
 			sg.header.CharName[i] = name[i]
 		} else {
-			sg.header.CharName[i] = 0
+			sg.header.CharName[i] = 0 // padding
 		}
 	}
 
-	return
-}
-
-func (sg *SavedGame) Class() Class {
-	return sg.header.CharClass
-}
-
-func (c Class) String() (str string) {
-	switch c.Class {
-	case CLASS_AMAZON:
-		str = "Amazon"
-	case CLASS_ASSASSIN:
-		str = "Assasin"
-	case CLASS_SORCERESS:
-		str = "Sorceress"
-	case CLASS_DRUID:
-		str = "Druid"
-	case CLASS_PALADIN:
-		str = "Paladin"
-	case CLASS_BARBARIAN:
-		str = "Barbarian"
-	case CLASS_NECROMANCER:
-		str = "Necromancer"
-	}
-	return
-}
-
-func (sg *SavedGame) SetClass(class Class) (err error) {
-	switch class.Class {
-	case CLASS_AMAZON:
-		break
-	case CLASS_ASSASSIN:
-		break
-	case CLASS_SORCERESS:
-		break
-	case CLASS_DRUID:
-		break
-	case CLASS_PALADIN:
-		break
-	case CLASS_BARBARIAN:
-		break
-	case CLASS_NECROMANCER:
-		break
-	default:
-		return fmt.Errorf("d2s.SetClass invalid value for class: %v", class)
-	}
-	sg.header.CharClass = class
-	return
+	return nil
 }
